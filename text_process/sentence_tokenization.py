@@ -1,6 +1,9 @@
 import os
 import re
-from .text_special_cases import SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST
+try:
+    from text_special_cases import SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST
+except:
+    from .text_special_cases import SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST    
 import logging
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
@@ -661,12 +664,13 @@ def test2():
     # print(read_file('../../../2019amia_train/100-02.txt'))
     sent_tokenizer = SentenceBoundaryDetection()
     sent_tokenizer.set_deid_pattern(None)
+    sent_tokenizer.special = True
     # sent_tokenizer.set_input_file("../../../2019amia_train/100-02.txt")
     # for each in sent_tokenizer.sent_word_tokenization_and_mapping():
     #     print(each)
 
     text3 = '''
-(1)  Chronic pancreatitis with multiple admissions. (2) Herniated disk.  (3)  Degenerative joint disease.  (4)  History of alcoholism.  (5)  Bipolar disorder.  (6)  Anxiety disorder.  (7) Normocytic anemia.
+M.D. (1) Chronic pancreatitis with multiple admissions   review. (2) Herniated disk.  (3)  Degenerative joint disease.  (4)  History of alcoholism.  (5)  Bipolar disorder.  (6)  Anxiety disorder.  (7) Normocytic anemia.
         '''
 
     print(sent_tokenizer.sent_tokenizer(text3))

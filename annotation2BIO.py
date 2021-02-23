@@ -8,7 +8,7 @@ entities and relations information are also provided in json format
 import os
 import sys
 import logging
-from .text_process.sentence_tokenization import SentenceBoundaryDetection
+from text_process.sentence_tokenization import SentenceBoundaryDetection
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__file__)
 # logger.disabled = True
@@ -47,7 +47,10 @@ def read_annotation_brat(ann_file, rep=False):
     relations = []
     with open(ann_file, "r") as f:
         for line in f:
-            anns = line[:-1].split("\t")
+            line = line.strip()
+            if not line:
+                continue
+            anns = line.split("\t")
             ann_id = anns[0]
             if ann_id.startswith("T"):
                 t_type = anns[-1]

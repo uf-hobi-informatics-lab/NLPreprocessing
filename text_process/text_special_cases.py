@@ -20,9 +20,9 @@ SENT_WORD = {'we', 'us', 'patient', 'denies', 'reveals', 'no', 'none', 'he', 'sh
              'to', 'in', 'with', 'for', 'an', 'and', 'but', 'or', 'as', 'at', 'of', 'have', 'it', 'that', 'by', 'from',
              'on', 'include', 'other', 'another'}
 
-UNIT = {'mg', 'lb', 'kg', 'mm', 'cm', 'm', 'doz', 'am', 'pm', 'mph', 'oz', 'ml', 'l', 'mb', 'mmHg', 'min', 'cm2', 'm2',
+UNIT = {'mg', 'lb', 'kg', 'mm', 'cm', 'm', 'doz', 'am', 'pm', 'mph', 'oz', 'ml', 'l', 'mb', 'mmHg', 'min', 'cm2', 'm2', 'M2',
         'mm2', 'mL', 'F', 'ppd', 'L', 'g', 'cc', "MG", "Munits", "pack", "mcg", "K", "hrs", "N", "inch", "d",
-        "AM", "PM", "HS", "QAM", "QPM", "BID", "mEq"}
+        "AM", "PM", "HS", "QAM", "QPM", "BID", "mEq", "hr", "cGy", "mGy", "mLs", "mOsm"}
 
 MIMICIII_DEID_PATTERN = "\[\*\*|\*\*\]"
 
@@ -31,11 +31,11 @@ NAME_PREFIX_SUFFIX = {
 }
 
 PROFESSIONAL_TITLE = {
-    'M.D.', 'Ph.D.'
+    'M.D.', 'Ph.D.', 'Pharm.D.'
 }
 
 SPECIAL_ABBV = {
-    'B.I.D.', 'E.C.'
+    'B.I.D.', 'E.C.', 'p.o.', 'P.O.', 'b.i.d.', 'p.r.n.'
 }
 
 ROMAN_NUM = {
