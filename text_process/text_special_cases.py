@@ -35,7 +35,8 @@ PROFESSIONAL_TITLE = {
 }
 
 SPECIAL_ABBV = {
-    'B.I.D.', 'E.C.', 'p.o.', 'P.O.', 'b.i.d.', 'p.r.n.'
+    'e.c.', 'p.o.', 'b.i.d.', 'p.r.n.', 'i.v.', 'i.m.', 'b.i.d', 'p.r.n', 'i.m', 'i.v', 'p.o', 'd.o.b', 'vo.', 'm.o',
+    'r.i.'
 }
 
 ROMAN_NUM = {

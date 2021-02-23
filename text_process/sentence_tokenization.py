@@ -1,9 +1,14 @@
 import os
 import re
+import traceback
+import ftfy
 try:
-    from text_special_cases import SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST
+    from text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT,
+                                    SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE,
+                                    WHITE_LIST, SPECIAL_ABBV)
 except:
-    from .text_special_cases import SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST    
+    from .text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT,
+                                     NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST, SPECIAL_ABBV)
 import logging
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
@@ -20,7 +25,7 @@ class SentenceBoundaryDetection:
         # deid pattern is regex for de-identified information pattern (such in [**name**], the [** is the pattern)
         self.deid_pattern = None
         # using medical special rules
-        self.special = False
+        self.special = True
         # the deid pattern replacement, if not set, using ""
         self.replace_pattern = ""
         self.input_file = None
@@ -45,6 +50,7 @@ class SentenceBoundaryDetection:
         self.__units_re = "|".join(self.__units)
         self.__name_prefix_suffix = NAME_PREFIX_SUFFIX
         self.__prof_title = PROFESSIONAL_TITLE
+        self.__special_abbv = SPECIAL_ABBV
         self.__white_list = WHITE_LIST
         logger.info("sentence boundary detection class initiated.")
 
@@ -112,6 +118,7 @@ class SentenceBoundaryDetection:
             if replace_number:
                 txt = re.sub("[0-9]", "0", txt)
 
+            txt = ftfy.fix_text(txt)
             lines = map(lambda x: x.strip(), txt.strip().split("\n"))
             preprocessed_text_list = []
 
@@ -175,11 +182,22 @@ class SentenceBoundaryDetection:
 
             word_list = []
             for j, word in enumerate(words):
-
                 if self.special:
                     # ********* process special cases **********
                     # keep M.D. or Ph.D. as it is
+                    if word.lower() in self.__special_abbv:
+                        word_list.extend([word, " "])
+                        continue
+
+                    if word in self.__units:
+                        word_list.extend([word, " "])
+                        continue
+
                     if word in self.__prof_title:
+                        word_list.extend([word, " "])
+                        continue
+
+                    if re.match("^[A-Za-z][1-9]|[+][0-9]+|[0-9]+[+]$", word):
                         word_list.extend([word, " "])
                         continue
 
@@ -209,158 +227,160 @@ class SentenceBoundaryDetection:
                             word_list.extend([word, " "])
                             continue
                     # ********* process special cases **********
-                
-                dot_pos = self.__dot_index(word)
-                if dot_pos >= 0:
-                    # if word in self.__special_abbv:
-                    #     word_list.extend([word, " "])
-                    if self.__num_dot(word) == 1:
-                        if self.__is_stop_punct(word):
-                            word_list.extend([word, "\n"])
-                        elif dot_pos == 0:
-                            word_list.extend([word, " "])
-                        elif word[0: dot_pos] in self.__name_prefix_suffix:
-                            # if it is Mr., Mrs., Dr. etc., should we keep the dot? remove dot for now
-                            # word_list.extend([word[0: dot_pos], " . ", word[dot_pos+1:]])
-                            word_list.extend([word[0: dot_pos+1], " ", word[dot_pos + 1:], " "])
-                        elif dot_pos == len(word) - 1:
-                            if self.__is_num_list(word):
-                                if j == 0:
-                                    word_list.extend([word[:-1], " . "])
-                                # elif 0<j<len(words)-1:
-                                #     word_list.extend(["\n", word, " "])
-                                else:
-                                    if word_list[-1][-1] == "\n":
+                try:
+                    dot_pos = self.__dot_index(word)
+                    if dot_pos >= 0:
+                        if self.__num_dot(word) == 1:
+                            if self.__is_stop_punct(word):
+                                word_list.extend([word, "\n"])
+                            elif dot_pos == 0:
+                                word_list.extend([word, " "])
+                            elif word[0: dot_pos] in self.__name_prefix_suffix:
+                                # if it is Mr., Mrs., Dr. etc., should we keep the dot? remove dot for now
+                                # word_list.extend([word[0: dot_pos], " . ", word[dot_pos+1:]])
+                                word_list.extend([word[0: dot_pos+1], " ", word[dot_pos + 1:], " "])
+                            elif dot_pos == len(word) - 1:
+                                if self.__is_num_list(word):
+                                    if j == 0:
                                         word_list.extend([word[:-1], " . "])
+                                    # elif 0<j<len(words)-1:
+                                    #     word_list.extend(["\n", word, " "])
                                     else:
-                                        word_list.extend([word[:-1], " ", ".\n"])
-                            elif word[:-1].lower() not in self.__abbr and word.lower() not in self.__abbr:
-                                word_list.extend([word[:-1], " ", ".\n"])
+                                        if word_list[-1][-1] == "\n":
+                                            word_list.extend([word[:-1], " . "])
+                                        else:
+                                            word_list.extend([word[:-1], " ", ".\n"])
+                                elif word[:-1].lower() not in self.__abbr and word.lower() not in self.__abbr:
+                                    word_list.extend([word[:-1], " ", ".\n"])
+                                else:
+                                    next_word = self.__return_next_word_from_words_list(words, j)
+                                    lword = word[:-1]
+                                    if lword in self.__units:
+                                        word_list.extend([lword, " ", ".\n"])
+                                    # TODO this rule is ambiguous; consider a better way (e.g., St. Augestine)
+                                    elif next_word and next_word[0].isupper():# and next_word.lower() not in self.__sentence_word:
+                                        word_list.extend([lword, " ", ".\n"])
+                                    else:
+                                        word_list.extend([lword, " ", ".", " "])
                             else:
+                                if re.match("^[0-9]+[.][0-9]+$", word):
+                                    word_list.extend([word, " "])
+                                elif re.match("^[A-Za-z]+", word):
+                                    ntk1, ntk2 = word.split(".")
+                                    word_list.extend([ntk1, " . ", ntk2, " "])
+                                elif re.match("^[0-9]+[.][A-Za-z]", word):
+                                    new_tokens = word.split(".")
+                                    word_list.extend([" ".join([new_tokens[0], "."]), " "])
+                                    word_list.extend([new_tokens[1], " "])
+                                # handle number mix with text
+                                elif re.match(f"^[0-9]+[.]?[0-9]*[{self.__units_re}]$", word):
+                                    num = re.match("^[0-9]+[.]?[0-9]*", word).group(0)
+                                    word_list.extend([num, " ", word.replace(num, ""), " "])
+                                elif re.match("^[A-Za-z]*[0-9]+[.]?[0-9]*[A-Za-z]*$", word):
+                                    # match number with word then insert a space
+                                    rm = re.match('([A-Za-z]*)([0-9]+[.]?[0-9]*)([A-Za-z]*)', word)
+                                    num_proc = []
+                                    if rm.group(1):
+                                        num_proc.append(rm.group(1))
+                                        num_proc.append(" ")
+                                    num_proc.append(rm.group(2))
+                                    if rm.group(3):
+                                        num_proc.append(" ")
+                                        num_proc.append(rm.group(3))
+                                    word_list.extend(num_proc)
+                                    word_list.append(" ")
+                                else:
+                                    m = re.match("^[0-9]+[.][0-9]+", word)
+                                    m1 = re.match("^[0-9]+[.]?[0-9]*x[0-9]*$", word)
+                                    if m and word.replace(m.group(0), "") in self.__units:
+                                        word_list.extend([m.group(0), " ", word.replace(m.group(0), ""), " "])
+                                    elif m1:
+                                        w1, w2 = word.split("x")
+                                        word_list.extend([w1, " ", "x", " "])
+                                        m = re.match("^[0-9]+[.]?[0-9]*", w2)
+                                        if m:
+                                            if w2.replace(m.group(0), "") in self.__units:
+                                                word_list.extend([m.group(0), " ", w2.replace(m.group(0), ""), " "])
+                                            else:
+                                                word_list.extend([m.group(0), " "])
+                                    else:
+                                        logger.warning(f"'{word}' cannot be parsed by current rule.")
+                                        word_list.extend([word, " "])
+                        else:
+                            if word[-1] == ".":
                                 next_word = self.__return_next_word_from_words_list(words, j)
                                 lword = word[:-1]
-                                if lword in self.__units:
+                                # separate a.b to a . b for all cases?
+                                lword_seg = lword.split(".")
+                                nlword = []
+                                for each in lword_seg:
+                                    nlword.extend([each, " . "])
+                                nlword[-1] = " "
+                                if self.__is_digit(lword):
                                     word_list.extend([lword, " ", ".\n"])
-                                # TODO this rule is ambiguous; consider a better way (e.g., St. Augestine)
-                                elif next_word and next_word[0].isupper():# and next_word.lower() not in self.__sentence_word:
-                                    word_list.extend([lword, " ", ".\n"])
+                                elif re.match('^\d*[.]?\d+[a-zA-Z]+$', lword) or \
+                                        re.match('^\d{1,2}:\d{1,2}[a-zA-Z]+$', lword):
+                                    ch_pos = 0
+                                    while ch_pos < len(lword) and \
+                                            (lword[ch_pos].isdigit() or lword[ch_pos] == "." or lword[ch_pos] == ":"):
+                                        ch_pos += 1
+                                    w1 = lword[:ch_pos]
+                                    w2 = lword[ch_pos:]
+                                    if w2 in self.__units:
+                                        word_list.extend([w1, " ", w2, " ", ".\n"])
+                                    elif len(next_word) > 0 and next_word[0].isupper():
+                                        word_list.extend([lword, " ", ".\n"])
+                                    else:
+                                        word_list.extend([lword, " ", ".", " "])
+                                elif len(next_word) > 0 and next_word[0].isupper() and \
+                                        next_word.lower() in self.__sentence_word:
+                                    # word_list.extend([lword, " ", ".\n"])
+                                    word_list.extend(nlword + [".\n"])
                                 else:
-                                    word_list.extend([lword, " ", ".", " "])
-                        else:
-                            if re.match("^[0-9]+[.][0-9]+$", word):
-                                word_list.extend([word, " "])
-                            elif re.match("^[A-Za-z]+", word):
-                                ntk1, ntk2 = word.split(".")
-                                word_list.extend([ntk1, " . ", ntk2, " "])
-                            elif re.match("^[0-9]+[.][A-Za-z]", word):
-                                new_tokens = word.split(".")
-                                word_list.extend([" ".join([new_tokens[0], "."]), " "])
-                                word_list.extend([new_tokens[1], " "])
-                            # handle number mix with text
-                            elif re.match(f"^[0-9]+[.]?[0-9]*[{self.__units_re}]$", word):
-                                num = re.match("^[0-9]+[.]?[0-9]*", word).group(0)
-                                word_list.extend([num, " ", word.replace(num, ""), " "])
-                            elif re.match("^[A-Za-z]*[0-9]+[.]?[0-9]*[A-Za-z]*$", word):
-                                # match number with word then insert a space
-                                rm = re.match('([A-Za-z]*)([0-9]+[.]?[0-9]*)([A-Za-z]*)', word)
-                                num_proc = []
-                                if rm.group(1):
-                                    num_proc.append(rm.group(1))
-                                    num_proc.append(" ")
-                                num_proc.append(rm.group(2))
-                                if rm.group(3):
-                                    num_proc.append(" ")
-                                    num_proc.append(rm.group(3))
-                                word_list.extend(num_proc)
-                                word_list.append(" ")
+                                    # logger.warning(f"'{word}' cannot be parsed by current rule.")
+                                    # word_list.extend([lword, " ", ".", " "])
+                                    word_list.extend(nlword + [".", " "])
                             else:
-                                m = re.match("^[0-9]+[.][0-9]+", word)
-                                m1 = re.match("^[0-9]+[.]?[0-9]*x[0-9]*", word)
-                                if m and word.replace(m.group(0), "") in self.__units:
-                                    word_list.extend([m.group(0), " ", word.replace(m.group(0), ""), " "])
-                                elif m1:
+                                # word_list.extend([word, " "])
+                                if re.match("^[0-9]+[.][0-9]+x[0-9]+[.][0-9]+$", word):
                                     w1, w2 = word.split("x")
-                                    word_list.extend([w1, " ", "x", " "])
-                                    m = re.match("^[0-9]+[.]?[0-9]*", w2)
-                                    if m: 
-                                        if w2.replace(m.group(0), "") in self.__units:
-                                            word_list.extend([m.group(0), " ", w2.replace(m.group(0), ""), " "])
-                                        else:
-                                            word_list.extend([m.group(0), " "])
+                                    word_list.extend([w1, " ", "x", " ", w2, " "])
                                 else:
-                                    logger.warning(f"'{word}' cannot be parsed by current rule.")
-                                    word_list.extend([word, " "])
+                                    word_seg = word.split(".")
+                                    word = []
+                                    for each in word_seg:
+                                        word.append(each)
+                                        word.append(" . ")
+                                    word_list.extend(word[:-1])
+                                    word_list.append(" ")
                     else:
-                        if word[-1] == ".":
-                            next_word = self.__return_next_word_from_words_list(words, j)
-                            lword = word[:-1]
-                            # separate a.b to a . b for all cases?
-                            lword_seg = lword.split(".")
-                            nlword = []
-                            for each in lword_seg:
-                                nlword.extend([each, " . "])
-                            nlword[-1] = " "
-                            if self.__is_digit(lword):
-                                word_list.extend([lword, " ", ".\n"])
-                            elif re.match('^\d*[.]?\d+[a-zA-Z]+$', lword) or \
-                                    re.match('^\d{1,2}:\d{1,2}[a-zA-Z]+$', lword):
-                                ch_pos = 0
-                                while ch_pos < len(lword) and \
-                                        (lword[ch_pos].isdigit() or lword[ch_pos] == "." or lword[ch_pos] == ":"):
-                                    ch_pos += 1
-                                w1 = lword[:ch_pos]
-                                w2 = lword[ch_pos:]
-                                if w2 in self.__units:
-                                    word_list.extend([w1, " ", w2, " ", ".\n"])
-                                elif len(next_word) > 0 and next_word[0].isupper():
-                                    word_list.extend([lword, " ", ".\n"])
-                                else:
-                                    word_list.extend([lword, " ", ".", " "])
-                            elif len(next_word) > 0 and next_word[0].isupper() and \
-                                    next_word.lower() in self.__sentence_word:
-                                # word_list.extend([lword, " ", ".\n"])
-                                word_list.extend(nlword + [".\n"])
-                            else:
-                                # logger.warning(f"'{word}' cannot be parsed by current rule.")
-                                # word_list.extend([lword, " ", ".", " "])
-                                word_list.extend(nlword + [".", " "])
+                        if re.match("^x[0-9]+$", word):
+                            word_list.extend(["x", " ", word[1:], " "])
+                        elif re.match("^[0-9]+x[0-9]+$", word):
+                            w1, w2 = word.split("x")
+                            word_list.extend([w1, " ", "x", " ", w2, " "])
+                        elif re.match(f"^[0-9]+[{self.__units_re}]$", word):
+                            num = re.match("^[0-9]+", word).group(0)
+                            word_list.extend([num, " ", word.replace(num, ""), " "])
+                        elif re.match("^[A-Za-z]*[0-9]+[A-Za-z]*$", word):
+                            #match number with word then insert a space
+                            rm = re.match('([A-Za-z]*)([0-9]+)([A-Za-z]*)', word)
+                            num_proc = []
+                            if rm.group(1):
+                                num_proc.append(rm.group(1))
+                                num_proc.append(" ")
+                            num_proc.append(rm.group(2))
+                            if rm.group(3):
+                                num_proc.append(" ")
+                                num_proc.append(rm.group(3))
+                            word_list.extend(num_proc)
+                            word_list.append(" ")
                         else:
-                            # word_list.extend([word, " "])
-                            if re.match("^[0-9]+[.][0-9]+x[0-9]+[.][0-9]+$", word):
-                                w1, w2 = word.split("x")
-                                word_list.extend([w1, " ", "x", " ", w2, " "])
-                            else:
-                                word_seg = word.split(".")
-                                word = []
-                                for each in word_seg:
-                                    word.append(each)
-                                    word.append(" . ")
-                                word_list.extend(word[:-1])
-                                word_list.append(" ")
-                else:
-                    if re.match("^x[0-9]+$", word):
-                        word_list.extend(["x", " ", word[1:], " "])
-                    elif re.match("^[0-9]+x[0-9]+$", word):
-                        w1, w2 = word.split("x")
-                        word_list.extend([w1, " ", "x", " ", w2, " "])
-                    elif re.match(f"^[0-9]+[{self.__units_re}]$", word):
-                        num = re.match("^[0-9]+", word).group(0)
-                        word_list.extend([num, " ", word.replace(num, ""), " "])
-                    elif re.match("^[A-Za-z]*[0-9]+[A-Za-z]*$", word):
-                        #match number with word then insert a space
-                        rm = re.match('([A-Za-z]*)([0-9]+)([A-Za-z]*)', word)
-                        num_proc = []
-                        if rm.group(1):
-                            num_proc.append(rm.group(1))
-                            num_proc.append(" ")
-                        num_proc.append(rm.group(2))
-                        if rm.group(3):
-                            num_proc.append(" ")
-                            num_proc.append(rm.group(3))
-                        word_list.extend(num_proc)
-                        word_list.append(" ")
-                    else:
-                        word_list.extend([word, " "])
+                            word_list.extend([word, " "])
+                except Exception as ex:
+                    logger.error("error at {}".format(word))
+                    logger.error("{}".format(traceback.format_exc()))
+                    word_list.extend([word, " "])
 
             # print(word_list)
             tmp = "".join(word_list).strip()
@@ -647,8 +667,8 @@ BLOOD PRESSURE 130/70PULSE 70WEIGHT 207 lbExam
     '''
 
 
-    # print(sent_tokenizer.sent_tokenizer(text1))
-    # print(sent_tokenizer.sent_tokenizer(text2))
+    print(sent_tokenizer.sent_tokenizer(text1))
+    print(sent_tokenizer.sent_tokenizer(text2))
     print(sent_tokenizer.sent_tokenizer(text3))
 
 
@@ -670,13 +690,13 @@ def test2():
     #     print(each)
 
     text3 = '''
+    10.0x10x10
 M.D. (1) Chronic pancreatitis with multiple admissions   review. (2) Herniated disk.  (3)  Degenerative joint disease.  (4)  History of alcoholism.  (5)  Bipolar disorder.  (6)  Anxiety disorder.  (7) Normocytic anemia.
         '''
-
     print(sent_tokenizer.sent_tokenizer(text3))
 
 
 if __name__ == '__main__':
-    # test()
+    test()
     # test1()
     test2()
