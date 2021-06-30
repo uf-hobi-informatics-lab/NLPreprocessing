@@ -1,12 +1,12 @@
 import os
 import re
 import traceback
-import ftfy
+# import ftfy
 try:
     from text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT,
                                     SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE,
                                     WHITE_LIST, SPECIAL_ABBV)
-except:
+except Exception as ex:
     from .text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT,
                                      NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST, SPECIAL_ABBV)
 import logging
@@ -118,7 +118,7 @@ class SentenceBoundaryDetection:
             if replace_number:
                 txt = re.sub("[0-9]", "0", txt)
 
-            txt = ftfy.fix_text(txt)
+            # txt = ftfy.fix_text(txt) # do not apply ftfy here, apply before run sentence tokenization
             lines = map(lambda x: x.strip(), txt.strip().split("\n"))
             preprocessed_text_list = []
 
