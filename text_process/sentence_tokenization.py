@@ -471,7 +471,7 @@ class SentenceBoundaryDetection:
     def sent_word_tokenization_and_mapping(self, txt=None, min_len=0, replace_number=False, max_len=100):
         normalized_txt = self.sent_tokenizer(txt=txt, min_len=min_len, replace_number=replace_number)
 
-        # limit sentence len to 180 words
+        # limit sentence len to max_len words
         tokens = []
         normed_sents = normalized_txt.strip().split("\n")
         for sent in normed_sents:
