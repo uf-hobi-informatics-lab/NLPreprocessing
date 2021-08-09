@@ -475,7 +475,6 @@ class SentenceBoundaryDetection:
         tokens = []
         normed_sents = normalized_txt.strip().split("\n")
         for sent in normed_sents:
-            print("RAW:", sent)
             toks = sent.split(" ")
             ll = len(toks)
             if ll <= max_len:
