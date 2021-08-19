@@ -461,7 +461,7 @@ class SentenceBoundaryDetection:
 
     def find_sep(self, tokens, idx):
         index = idx
-        while index >= 0:
+        while index >= (idx//2):
             if tokens[index] in self.__sep_symbol:
                 break
             index -= 1
