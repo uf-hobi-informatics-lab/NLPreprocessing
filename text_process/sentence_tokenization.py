@@ -1,3 +1,4 @@
+
 import os
 import re
 import traceback
@@ -14,6 +15,10 @@ import logging
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger('sentence_tokenization')
 # logger.disabled = True
+
+
+def _only_dots(word):
+    return re.match("^[.]{2,}$", word)
 
 
 class SentenceBoundaryDetection:
@@ -132,7 +137,7 @@ class SentenceBoundaryDetection:
                         else:
                             chs.append(ch)
                     line = "".join(chs)
-                    line = re.sub('[ ]{2,}', ' ', line).strip()
+                    line = re.sub(' +', ' ', line).strip()
                     if len(line) > 0:
                         preprocessed_text_list.append(line)
             return preprocessed_text_list
@@ -230,6 +235,11 @@ class SentenceBoundaryDetection:
                 try:
                     dot_pos = self.__dot_index(word)
                     if dot_pos >= 0:
+                        # handle "...+" case
+                        if _only_dots(word):
+                            word_list.extend([word, " "])
+                            continue
+
                         if self.__num_dot(word) == 1:
                             if self.__is_stop_punct(word):
                                 word_list.extend([word, "\n"])
@@ -273,7 +283,7 @@ class SentenceBoundaryDetection:
                                     word_list.extend([" ".join([new_tokens[0], "."]), " "])
                                     word_list.extend([new_tokens[1], " "])
                                 # handle number mix with text
-                                elif re.match(f"^[0-9]+[.]?[0-9]*[{self.__units_re}]$", word):
+                                elif re.match(f"^[0-9]+[.]?[0-9]*({self.__units_re})$", word):
                                     num = re.match("^[0-9]+[.]?[0-9]*", word).group(0)
                                     word_list.extend([num, " ", word.replace(num, ""), " "])
                                 elif re.match("^[A-Za-z]*[0-9]+[.]?[0-9]*[A-Za-z]*$", word):
@@ -359,7 +369,7 @@ class SentenceBoundaryDetection:
                         elif re.match("^[0-9]+x[0-9]+$", word):
                             w1, w2 = word.split("x")
                             word_list.extend([w1, " ", "x", " ", w2, " "])
-                        elif re.match(f"^[0-9]+[{self.__units_re}]$", word):
+                        elif re.match(f"^[0-9]+({self.__units_re})$", word):
                             num = re.match("^[0-9]+", word).group(0)
                             word_list.extend([num, " ", word.replace(num, ""), " "])
                         elif re.match("^[A-Za-z]*[0-9]+[A-Za-z]*$", word):
@@ -711,6 +721,7 @@ def test1():
     sent_tokenizer.set_input_file("../test/test_mimiciii_10/mimiciii_1.txt")
     print(sent_tokenizer.sent_word_tokenization_and_mapping())
 
+
 def test2():
     # from file_utils.nlp_io import read_file
     # print(read_file('../../../2019amia_train/100-02.txt'))
@@ -721,12 +732,13 @@ def test2():
     # for each in sent_tokenizer.sent_word_tokenization_and_mapping():
     #     print(each)
 
-    text3 = '''TITLE:\n   67 y.o.m. with metastatic renal cell carcinoma with metastasis to the\n   pancreas and liver as well as known duodenal/ampullary mass presents\n   with BRBPR x 2 days. Of note, the patient was recently started on\n   sutent. Pt states that he first noticed bloody bowel movement yesterday\n   am. He called his oncologist who recommended bowel prep in anticipation\n   of colonoscopy today given known side effect of bleeding with sutent.\n   Pt has colonoscopy this am that showed blood in colon but no\n   identifiable source. Pt was referred to the ED for tagged RBC scan and\n   labs.\n   Here, a tagged RBC scan was positive at 60 min, and pt was taken to\n   angiography. There, they couldn't find any obvious source of bleed, but\n   was consistent with a small bowel source.\n   HCT noted to drop further to 21 and patient was then referred for MICU\n   admission.\n   On admission, he denies fast heart rate, lightheadedness, dizziness,\n   chest or abdominal pain, tenesmus.  He feels generally well, though a\n   little anxious.\n   Status post left nephrectomy followed by high-dose IL-2 [**2166**].\n     st. post resection of residual renal bed mass in [**2168**]\n    Recurrence in the left renal fossa and pancreas in [**4-/2182**]\n    [**2185**], which showed progression of pancreatic metastases.  Perifosine\n   held since [**2187-6-13**] due to GI bleed.\n    ERCP on [**2187-6-20**] showed a malignant appearing mass in\n   duodenum, pathology consistent with metastatic renal cell Ca.\n    Perifosine restarted [**2187-6-27**] for one week, held on [**7-4**] due to\n   SBO requiring hospital admission in [**Hospital3 **], and\n   restarted again on [**7-11**].\n   Perifosine held due to elevated LFTs on [**2187-7-25**].\n    ERCP on [**2187-8-3**] - biliary stent placed to proximal CBD.\n   .H/O hypertension, benign\n   Assessment:\n   When pt is anxious & claustrophobic Bp once in 180\ns, Usually in 130\n   to 140\n   Action:\n   Anti Htn meds held. Anxiety treated with ativan.\n   Response:\n   BP continues to be in 120\ns to 140\ns. Pt calmer & less anxious after\n   ativan doses.\n   Plan:\n   Plan to start Nitroglycerin gtt if SBP above 180. continue monitoring\n   bp.\n   Anxiety\n   Assessment:\n   Pt states tthat he is claustrophobic when he is on bedrest & connected\n   to so mant wires & cannot take a walk around. Requesting doses of\n   ativan frequently to keep himself calm.\n   Action:\n   Total of 2 mgs iv ativan given & 0.5 mg of po ativan given. Orders for\n   prn ativan 0.5 mgs to 2 mgs\n   Response:\n   Pt slept off & on & is less anxious post ativan & waits for the next\n   dose to be given after he is awake from the previously given dose.\n   Emotional support given. TV & lights on as per patient comfort.\n   Plan:\n   Continue emotional support, Ativan as per orders.\n   .H/O liver function abnormalities\n   Assessment:\n   Labs awaited.\n   Action:\n   Response:\n   Plan:\n   .H/O gastrointestinal bleed, lower (Hematochezia, BRBPR, GI Bleed, GIB)\n   Assessment:\n   Pt came in with HCt of 21, Had one episode of large maroon stools. Seen\n   by surgery team & MICU Team.\n   Action:\n   3 units of blood given, 4^th ordered.\n   Response:\n   Hct ^ to 27 after the 3^rd unit of blood.\n   Plan:\n   Monitor labs, Blood as per orers.\n   Seen by surgery, Foley inserted to track urine output.\n   PLAN:\n    To support with blood products overnight, following serial coags / CBC\n   every 6-8 hours. To continue aggressive acid inhibition with IV PPI and\n   close communication with surgery, GI, and IR. Will check lactate and\n   LFTS / amylase / lipase to assess for occult hypoperfusion and\n   perforation. In the event of a catastrophic bleed, will retry IR\n   embolotherpy. Surgery might not be an option, and would certainly be\n   high risk. Will discuss with oncology and consider transfer to OMED\n   once stabilized.'''
+    # text3 = '''TITLE:\n   67 y.o.m. with metastatic renal cell carcinoma with metastasis to the\n   pancreas and liver as well as known duodenal/ampullary mass presents\n   with BRBPR x 2 days. Of note, the patient was recently started on\n   sutent. Pt states that he first noticed bloody bowel movement yesterday\n   am. He called his oncologist who recommended bowel prep in anticipation\n   of colonoscopy today given known side effect of bleeding with sutent.\n   Pt has colonoscopy this am that showed blood in colon but no\n   identifiable source. Pt was referred to the ED for tagged RBC scan and\n   labs.\n   Here, a tagged RBC scan was positive at 60 min, and pt was taken to\n   angiography. There, they couldn't find any obvious source of bleed, but\n   was consistent with a small bowel source.\n   HCT noted to drop further to 21 and patient was then referred for MICU\n   admission.\n   On admission, he denies fast heart rate, lightheadedness, dizziness,\n   chest or abdominal pain, tenesmus.  He feels generally well, though a\n   little anxious.\n   Status post left nephrectomy followed by high-dose IL-2 [**2166**].\n     st. post resection of residual renal bed mass in [**2168**]\n    Recurrence in the left renal fossa and pancreas in [**4-/2182**]\n    [**2185**], which showed progression of pancreatic metastases.  Perifosine\n   held since [**2187-6-13**] due to GI bleed.\n    ERCP on [**2187-6-20**] showed a malignant appearing mass in\n   duodenum, pathology consistent with metastatic renal cell Ca.\n    Perifosine restarted [**2187-6-27**] for one week, held on [**7-4**] due to\n   SBO requiring hospital admission in [**Hospital3 **], and\n   restarted again on [**7-11**].\n   Perifosine held due to elevated LFTs on [**2187-7-25**].\n    ERCP on [**2187-8-3**] - biliary stent placed to proximal CBD.\n   .H/O hypertension, benign\n   Assessment:\n   When pt is anxious & claustrophobic Bp once in 180\ns, Usually in 130\n   to 140\n   Action:\n   Anti Htn meds held. Anxiety treated with ativan.\n   Response:\n   BP continues to be in 120\ns to 140\ns. Pt calmer & less anxious after\n   ativan doses.\n   Plan:\n   Plan to start Nitroglycerin gtt if SBP above 180. continue monitoring\n   bp.\n   Anxiety\n   Assessment:\n   Pt states tthat he is claustrophobic when he is on bedrest & connected\n   to so mant wires & cannot take a walk around. Requesting doses of\n   ativan frequently to keep himself calm.\n   Action:\n   Total of 2 mgs iv ativan given & 0.5 mg of po ativan given. Orders for\n   prn ativan 0.5 mgs to 2 mgs\n   Response:\n   Pt slept off & on & is less anxious post ativan & waits for the next\n   dose to be given after he is awake from the previously given dose.\n   Emotional support given. TV & lights on as per patient comfort.\n   Plan:\n   Continue emotional support, Ativan as per orders.\n   .H/O liver function abnormalities\n   Assessment:\n   Labs awaited.\n   Action:\n   Response:\n   Plan:\n   .H/O gastrointestinal bleed, lower (Hematochezia, BRBPR, GI Bleed, GIB)\n   Assessment:\n   Pt came in with HCt of 21, Had one episode of large maroon stools. Seen\n   by surgery team & MICU Team.\n   Action:\n   3 units of blood given, 4^th ordered.\n   Response:\n   Hct ^ to 27 after the 3^rd unit of blood.\n   Plan:\n   Monitor labs, Blood as per orers.\n   Seen by surgery, Foley inserted to track urine output.\n   PLAN:\n    To support with blood products overnight, following serial coags / CBC\n   every 6-8 hours. To continue aggressive acid inhibition with IV PPI and\n   close communication with surgery, GI, and IR. Will check lactate and\n   LFTS / amylase / lipase to assess for occult hypoperfusion and\n   perforation. In the event of a catastrophic bleed, will retry IR\n   embolotherpy. Surgery might not be an option, and would certainly be\n   high risk. Will discuss with oncology and consider transfer to OMED\n   once stabilized.'''
+    text3 = "realize .. . .  BACKGROUND/AIMS: Interleukin-12 (IL-12) governs the Th1-type immune response  12mg"
     # print(sent_tokenizer.sent_tokenizer(text3))
     normalized_txt, sents = sent_tokenizer.sent_word_tokenization_and_mapping(text3, max_len=20)
     print(normalized_txt)
-    for each in sents:
-        print(" ".join([e[0] for e in each]))
+    # for each in sents:
+    #     print(" ".join([e[0] for e in each]))
 
 
 if __name__ == '__main__':
