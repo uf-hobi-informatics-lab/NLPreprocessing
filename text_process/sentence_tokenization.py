@@ -26,7 +26,7 @@ def _text_dots(word):
     if m:
         return m.span()[0]
     else:
-        return 0
+        return None
 
 
 class SentenceBoundaryDetection:
@@ -250,7 +250,7 @@ class SentenceBoundaryDetection:
 
                         # xxx.. => xxx .. => word = xxx; add .. back to words (words.insert(j+1, ..)
                         temp_i = _text_dots(word)
-                        if temp_i:
+                        if temp_i is not None:
                             words.insert(j+1, word[temp_i:])
                             word = word[:temp_i]
 
