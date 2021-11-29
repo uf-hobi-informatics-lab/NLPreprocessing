@@ -68,7 +68,7 @@ def read_annotation_brat(ann_file, rep=False):
     return entity_id2index_map, entites, relations
 
 
-def pre_processing(abs_file_path, deid_pattern=None, word_level=True, replace_number=False):
+def pre_processing(abs_file_path, deid_pattern=None, word_level=True, replace_number=False, max_len=100):
     sent_tokenizer = SentenceBoundaryDetection()
 
     if replace_number and not word_level:
@@ -82,7 +82,7 @@ def pre_processing(abs_file_path, deid_pattern=None, word_level=True, replace_nu
 
     logger.info(f"word level tokenization with replace_number set to {replace_number}")
 
-    return sent_tokenizer.sent_word_tokenization_and_mapping(replace_number)
+    return sent_tokenizer.sent_word_tokenization_and_mapping(replace_number=replace_number, max_len=max_len)
 
 
 def __remove_overlap_entity(sorted_entities):
