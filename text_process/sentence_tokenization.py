@@ -8,11 +8,11 @@ import tqdm
 try:
     from text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT,
                                     SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE,
-                                    WHITE_LIST, SPECIAL_ABBV, SPECIAL_UPPERCASE_WORD)
+                                    WHITE_LIST, SPECIAL_ABBV, SPECIAL_UPPERCASE_WORD, BREAK_SYMBOLS)
 except Exception as ex:
     from .text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT,
                                      NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST, SPECIAL_ABBV,
-                                     SPECIAL_UPPERCASE_WORD)
+                                     SPECIAL_UPPERCASE_WORD, BREAK_SYMBOLS)
 import logging
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
@@ -208,11 +208,15 @@ class SentenceBoundaryDetection:
                         continue
 
                     if j + 1 < len(words):
-                        # used to solve cases like "E. coli"
+                        # used to solve cases like "E. coli" or  "E. coli."
                         peek_next_word = words[j+1]
                         check_word = word + peek_next_word
                         if check_word.lower() in self.__special_abbv:
                             word_list.extend([word + " " + peek_next_word, " "])
+                            words.pop(j+1)
+                            continue
+                        elif check_word[-1] == "." and check_word[:-1].lower() in self.__special_abbv:
+                            word_list.extend([word + " " + peek_next_word[:-1], " ", ".", " "])
                             words.pop(j+1)
                             continue
 
@@ -471,18 +475,22 @@ class SentenceBoundaryDetection:
                             not self.__is_num_list(next_line_first_word) and not next_line_first_word[0].isupper():
                             # and not next_line_first_word.lower() in self.__english:
                         tokenized_text_lines.append("".join([tmp, ' ']))
-                    elif re.match("[^A-Za-z0-9]|\?|!", cur_line_last_word_lower):
-                        tokenized_text_lines.append("".join([tmp, ' ']))
                     elif f"{cur_line_last_word}." in self.__name_prefix_suffix or f"{cur_line_last_word}." in self.__prof_title:
                         tokenized_text_lines.append("".join([tmp, ' ']))
-                    elif self.__is_num_list(word_list[0]):
-                        if self.__is_num_list(next_line_first_word):
-                            tokenized_text_lines.append("".join([tmp, '\n']))
-                        else:
-                            tokenized_text_lines.append("".join([tmp, ' ']))
-                        # tokenized_text_lines.append("".join([tmp, ' ']))
-                    else:
+                    # elif self.__is_num_list(word_list[0]):
+                    #     if self.__is_num_list(next_line_first_word):
+                    #         tokenized_text_lines.append("".join([tmp, '\n']))
+                    #     else:
+                    #         tokenized_text_lines.append("".join([tmp, ' ']))
+                    #     # tokenized_text_lines.append("".join([tmp, ' ']))
+                    elif self.__is_num_list(next_line_first_word):
                         tokenized_text_lines.append("".join([tmp, '\n']))
+                    elif cur_line_last_word_lower in self.__stop_punct:
+                        tokenized_text_lines.append("".join([tmp, '\n']))
+                    elif re.match("[^A-Za-z0-9]", cur_line_last_word_lower):
+                        tokenized_text_lines.append("".join([tmp, ' ']))
+                    else:
+                        tokenized_text_lines.append("".join([tmp, ' ']))
             else:
                 tokenized_text_lines.append("".join([tmp, '\n']))
                 # tokenized_text_lines.append("".join([tmp, ' ']))
@@ -516,7 +524,7 @@ class SentenceBoundaryDetection:
     def find_sep(self, tokens, idx):
         index = idx
         while index >= (idx//2):
-            if tokens[index] in self.__sep_symbol:
+            if tokens[index] in BREAK_SYMBOLS:
                 break
             index -= 1
 
@@ -770,7 +778,7 @@ def test2():
     # from file_utils.nlp_io import read_file
     # print(read_file('../../../2019amia_train/100-02.txt'))
     sent_tokenizer = SentenceBoundaryDetection()
-    sent_tokenizer.set_deid_pattern(None)
+    sent_tokenizer.set_deid_pattern("\[\*\*|\*\*\]")
     sent_tokenizer.special = True
     # sent_tokenizer.set_input_file("../../../2019amia_train/100-02.txt")
     # for each in sent_tokenizer.sent_word_tokenization_and_mapping():
@@ -782,12 +790,35 @@ def test2():
     # text3 = "L490R. AUCpinsulin E. coli E.coli IMPRESSION: AP chest compared to [**8-14**] through 11: Postoperative widening of the\n mediastinum is stable, as is bilateral subcutaneous emphysema and a small\n retrosternal air leak as seen before. Stable to slightly decreased size of the\n cardiomediastinal silhouette and presumed small-moderate pericardial effusion.\n There is slightly worse ill-defined right lower lobe atelectasis and small\n left lower lobe atelectasis and small bilateral pleural effusions."
   # print(sent_tokenizer.sent_tokenizer(text3))
 
-    text3 = "q6HR\nPRN nausa."
+    text3 = """intermittent A. Fib with temertet\n9. Toprol XL 50 mg Tablet Sustained Release 24 hr Sig: 1.5
+Tablet Sustained Release 24 hrs PO once a day. Tablet Sustained
+Release 24 hr(s)
+10. Warfarin 5 mg Tablet Sig: One (1) Tablet PO Once Daily at 4
+PM.
+13. Insulin Glargine 100 unit/mL Cartridge Sig: Twenty Four (24)
+units Subcutaneous at bedtime.
+14. Pulmicort Flexhaler 180 mcg/Inhalation Aerosol Powdr Breath
+Activated Sig: Two (2) puffs Inhalation twice a day.
+20. Tamsulosin 0.4 mg Capsule, Sust. Release 24 hr Sig: One (1)
+Capsule, Sust. Release 24 hr PO at bedtime. She will be discharged on her Metoprolol
+Succinate, diovan, and her s p.o. b.i.d. Compazine 5 to 10 mg q.i.d.
+p.r.n. nausea.
+  Blood cultures from [**Doctor Last Name 1263**] grew out
+[**4-26**] E. coli (with E. coli also in urine) resistant to
+amp/pip/sulbactam
+He is currently just on cipro and is to complete a 14 day course
+for E. coli.  He continued to improve clinically, was extubated
+on [**12-29**], """
+
+    text3 = """METOPROLOL - 50mg by mouth three times a day
+WARFARIN - 2mg qHS S/W/Fr, 4mg qHS M/T/Th/Sa
+
+MEDICATIONS ON TRANSFER:"""
 
     normalized_txt, sents = sent_tokenizer.sent_word_tokenization_and_mapping(text3, max_len=100)
     print(normalized_txt)
-    # for each in sents:
-    #     print(" ".join([e[0] for e in each]))
+    for each in sents:
+        print(" ".join([e[0] for e in each]))
 
 
 if __name__ == '__main__':
