@@ -3,13 +3,16 @@ import os
 import re
 import traceback
 # import ftfy
+import tqdm
+
 try:
     from text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT,
                                     SENT_WORD, UNIT, NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE,
-                                    WHITE_LIST, SPECIAL_ABBV)
+                                    WHITE_LIST, SPECIAL_ABBV, SPECIAL_UPPERCASE_WORD, BREAK_SYMBOLS)
 except Exception as ex:
     from .text_special_cases import (SYMBOLS, PREP, DET, NON_STOP_PUNCT, STOP_PUNCT, SENT_WORD, UNIT,
-                                     NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST, SPECIAL_ABBV)
+                                     NAME_PREFIX_SUFFIX, PROFESSIONAL_TITLE, WHITE_LIST, SPECIAL_ABBV,
+                                     SPECIAL_UPPERCASE_WORD, BREAK_SYMBOLS)
 import logging
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
@@ -65,6 +68,8 @@ class SentenceBoundaryDetection:
         self.__prof_title = PROFESSIONAL_TITLE
         self.__special_abbv = SPECIAL_ABBV
         self.__white_list = WHITE_LIST
+        self.__suw = SPECIAL_UPPERCASE_WORD
+        self.__special_uppercase_words = "|".join(self.__suw)
         logger.info("sentence boundary detection class initiated.")
 
     @staticmethod
@@ -160,8 +165,8 @@ class SentenceBoundaryDetection:
         self.deid_pattern = deid_pattern
         self.replace_pattern = replace_pattern
 
-    def set_special_rules(self, param):
-        self.special = param
+    # def set_special_rules(self, param):
+    #     self.special = param
 
     def sent_tokenizer(self, txt=None, min_len=0, replace_number=False):
         """
@@ -186,7 +191,7 @@ class SentenceBoundaryDetection:
         text = self.__preprocessing(txt, replace_number)
         tokenized_text_lines = []
 
-        for i, line in enumerate(text):
+        for i, line in enumerate(text): # E. coli
             words = line.split(" ")
 
             if min_len > 0 and len(words) <= min_len:
@@ -202,6 +207,19 @@ class SentenceBoundaryDetection:
                         word_list.extend([word, " "])
                         continue
 
+                    if j + 1 < len(words):
+                        # used to solve cases like "E. coli" or  "E. coli."
+                        peek_next_word = words[j+1]
+                        check_word = word + peek_next_word
+                        if check_word.lower() in self.__special_abbv:
+                            word_list.extend([word + " " + peek_next_word, " "])
+                            words.pop(j+1)
+                            continue
+                        elif check_word[-1] == "." and check_word[:-1].lower() in self.__special_abbv:
+                            word_list.extend([word + " " + peek_next_word[:-1], " ", ".", " "])
+                            words.pop(j+1)
+                            continue
+
                     if word in self.__units:
                         word_list.extend([word, " "])
                         continue
@@ -210,7 +228,8 @@ class SentenceBoundaryDetection:
                         word_list.extend([word, " "])
                         continue
 
-                    if re.match("^[A-Za-z][1-9]|[+][0-9]+|[0-9]+[+]$", word):
+                    # need to figure out what this is for A1
+                    if re.match("^[A-Za-z][1-9]$|[+][0-9]+$|[0-9]+[+]$", word):
                         word_list.extend([word, " "])
                         continue
 
@@ -225,13 +244,27 @@ class SentenceBoundaryDetection:
 
                     # process a special merge words two case: XXXxx except case: XXX(s|x)
                     # rules
-                    if re.match("^[A-Z]{2,}[A-Z][a-z]+$", word) and not re.match("[A-Z]+[s|x|i]", word) and word not in self.__white_list and not word.startswith("Mc"):
+                    if re.match("^[A-Z]{2,}[A-Z][a-z]+$", word) and \
+                            not re.match("[A-Z]+[s|x]", word) and \
+                            word not in self.__white_list and \
+                            not word.startswith("Mc"):
                         logger.info(word)
+                        # case: upper case part has a special word like AUC
+                        swc = re.search(f"^({self.__special_uppercase_words})", word)
+                        # case: just random
                         rm = re.match("(^[A-Z]{2,})([A-Z][a-z]+$)", word)
-                        w1, w2 = w1, w2 = rm.group(1), rm.group(2)
-                        word_list.extend([w1, " ", w2, " "])
-                        logger.warning(f"'{word}' => '{w1}' '{w2}'")
+                        if swc:
+                            w1, w2 = w1, w2 = swc.group(1), word.replace(swc.group(1), "")
+                            word_list.extend([w1, " ", w2, " "])
+                            logger.warning(f"'{word}' => '{w1}' '{w2}'")
+                        elif rm:
+                            w1, w2 = w1, w2 = rm.group(1), rm.group(2)
+                            word_list.extend([w1, " ", w2, " "])
+                            logger.warning(f"'{word}' => '{w1}' '{w2}'")
                         continue
+
+                    # process a special merge words reverse to the case above: xxxXX
+                    # rules
 
                     # deal with name abbreviation like pattern: Xxxx X. Xxxx
                     if re.match("[A-Z]\\.", word):
@@ -387,19 +420,19 @@ class SentenceBoundaryDetection:
                         elif re.match(f"^[0-9]+({self.__units_re})$", word):
                             num = re.match("^[0-9]+", word).group(0)
                             word_list.extend([num, " ", word.replace(num, ""), " "])
-                        elif re.match("^[A-Za-z]*[0-9]+[A-Za-z]*$", word):
-                            #match number with word then insert a space
-                            rm = re.match('([A-Za-z]*)([0-9]+)([A-Za-z]*)', word)
-                            num_proc = []
-                            if rm.group(1):
-                                num_proc.append(rm.group(1))
-                                num_proc.append(" ")
-                            num_proc.append(rm.group(2))
-                            if rm.group(3):
-                                num_proc.append(" ")
-                                num_proc.append(rm.group(3))
-                            word_list.extend(num_proc)
-                            word_list.append(" ")
+                        # elif re.match("^[A-Za-z]+[0-9]+[A-Za-z]+$", word):
+                        #     # match number with word then insert a space xx1xx => xx 1 xx HA1c
+                        #     rm = re.match('([A-Za-z]*)([0-9]+)([A-Za-z]*)', word)
+                        #     num_proc = []
+                        #     if rm.group(1):
+                        #         num_proc.append(rm.group(1))
+                        #         num_proc.append(" ")
+                        #     num_proc.append(rm.group(2))
+                        #     if rm.group(3):
+                        #         num_proc.append(" ")
+                        #         num_proc.append(rm.group(3))
+                        #     word_list.extend(num_proc)
+                        #     word_list.append(" ")
                         else:
                             word_list.extend([word, " "])
                 except Exception as ex:
@@ -442,18 +475,22 @@ class SentenceBoundaryDetection:
                             not self.__is_num_list(next_line_first_word) and not next_line_first_word[0].isupper():
                             # and not next_line_first_word.lower() in self.__english:
                         tokenized_text_lines.append("".join([tmp, ' ']))
-                    elif re.match("[^A-Za-z0-9]|\?|!", cur_line_last_word_lower):
-                        tokenized_text_lines.append("".join([tmp, ' ']))
                     elif f"{cur_line_last_word}." in self.__name_prefix_suffix or f"{cur_line_last_word}." in self.__prof_title:
                         tokenized_text_lines.append("".join([tmp, ' ']))
-                    elif self.__is_num_list(word_list[0]):
-                        if self.__is_num_list(next_line_first_word):
-                            tokenized_text_lines.append("".join([tmp, '\n']))
-                        else:
-                            tokenized_text_lines.append("".join([tmp, ' ']))
-                        # tokenized_text_lines.append("".join([tmp, ' ']))
-                    else:
+                    # elif self.__is_num_list(word_list[0]):
+                    #     if self.__is_num_list(next_line_first_word):
+                    #         tokenized_text_lines.append("".join([tmp, '\n']))
+                    #     else:
+                    #         tokenized_text_lines.append("".join([tmp, ' ']))
+                    #     # tokenized_text_lines.append("".join([tmp, ' ']))
+                    elif self.__is_num_list(next_line_first_word):
                         tokenized_text_lines.append("".join([tmp, '\n']))
+                    elif cur_line_last_word_lower in self.__stop_punct:
+                        tokenized_text_lines.append("".join([tmp, '\n']))
+                    elif re.match("[^A-Za-z0-9]", cur_line_last_word_lower):
+                        tokenized_text_lines.append("".join([tmp, ' ']))
+                    else:
+                        tokenized_text_lines.append("".join([tmp, ' ']))
             else:
                 tokenized_text_lines.append("".join([tmp, '\n']))
                 # tokenized_text_lines.append("".join([tmp, ' ']))
@@ -464,7 +501,7 @@ class SentenceBoundaryDetection:
     def __mapping(tokens, txt):
         offset_original = 0
         token_offsets = []
-        for line in tokens:
+        for line in tqdm.tqdm(tokens, disable=True):
             token_offset = []
             for each in line:
                 try:
@@ -487,7 +524,7 @@ class SentenceBoundaryDetection:
     def find_sep(self, tokens, idx):
         index = idx
         while index >= (idx//2):
-            if tokens[index] in self.__sep_symbol:
+            if tokens[index] in BREAK_SYMBOLS:
                 break
             index -= 1
 
@@ -741,19 +778,47 @@ def test2():
     # from file_utils.nlp_io import read_file
     # print(read_file('../../../2019amia_train/100-02.txt'))
     sent_tokenizer = SentenceBoundaryDetection()
-    sent_tokenizer.set_deid_pattern(None)
+    sent_tokenizer.set_deid_pattern("\[\*\*|\*\*\]")
     sent_tokenizer.special = True
     # sent_tokenizer.set_input_file("../../../2019amia_train/100-02.txt")
     # for each in sent_tokenizer.sent_word_tokenization_and_mapping():
     #     print(each)
 
     # text3 = '''TITLE:\n   67 y.o.m. with metastatic renal cell carcinoma with metastasis to the\n   pancreas and liver as well as known duodenal/ampullary mass presents\n   with BRBPR x 2 days. Of note, the patient was recently started on\n   sutent. Pt states that he first noticed bloody bowel movement yesterday\n   am. He called his oncologist who recommended bowel prep in anticipation\n   of colonoscopy today given known side effect of bleeding with sutent.\n   Pt has colonoscopy this am that showed blood in colon but no\n   identifiable source. Pt was referred to the ED for tagged RBC scan and\n   labs.\n   Here, a tagged RBC scan was positive at 60 min, and pt was taken to\n   angiography. There, they couldn't find any obvious source of bleed, but\n   was consistent with a small bowel source.\n   HCT noted to drop further to 21 and patient was then referred for MICU\n   admission.\n   On admission, he denies fast heart rate, lightheadedness, dizziness,\n   chest or abdominal pain, tenesmus.  He feels generally well, though a\n   little anxious.\n   Status post left nephrectomy followed by high-dose IL-2 [**2166**].\n     st. post resection of residual renal bed mass in [**2168**]\n    Recurrence in the left renal fossa and pancreas in [**4-/2182**]\n    [**2185**], which showed progression of pancreatic metastases.  Perifosine\n   held since [**2187-6-13**] due to GI bleed.\n    ERCP on [**2187-6-20**] showed a malignant appearing mass in\n   duodenum, pathology consistent with metastatic renal cell Ca.\n    Perifosine restarted [**2187-6-27**] for one week, held on [**7-4**] due to\n   SBO requiring hospital admission in [**Hospital3 **], and\n   restarted again on [**7-11**].\n   Perifosine held due to elevated LFTs on [**2187-7-25**].\n    ERCP on [**2187-8-3**] - biliary stent placed to proximal CBD.\n   .H/O hypertension, benign\n   Assessment:\n   When pt is anxious & claustrophobic Bp once in 180\ns, Usually in 130\n   to 140\n   Action:\n   Anti Htn meds held. Anxiety treated with ativan.\n   Response:\n   BP continues to be in 120\ns to 140\ns. Pt calmer & less anxious after\n   ativan doses.\n   Plan:\n   Plan to start Nitroglycerin gtt if SBP above 180. continue monitoring\n   bp.\n   Anxiety\n   Assessment:\n   Pt states tthat he is claustrophobic when he is on bedrest & connected\n   to so mant wires & cannot take a walk around. Requesting doses of\n   ativan frequently to keep himself calm.\n   Action:\n   Total of 2 mgs iv ativan given & 0.5 mg of po ativan given. Orders for\n   prn ativan 0.5 mgs to 2 mgs\n   Response:\n   Pt slept off & on & is less anxious post ativan & waits for the next\n   dose to be given after he is awake from the previously given dose.\n   Emotional support given. TV & lights on as per patient comfort.\n   Plan:\n   Continue emotional support, Ativan as per orders.\n   .H/O liver function abnormalities\n   Assessment:\n   Labs awaited.\n   Action:\n   Response:\n   Plan:\n   .H/O gastrointestinal bleed, lower (Hematochezia, BRBPR, GI Bleed, GIB)\n   Assessment:\n   Pt came in with HCt of 21, Had one episode of large maroon stools. Seen\n   by surgery team & MICU Team.\n   Action:\n   3 units of blood given, 4^th ordered.\n   Response:\n   Hct ^ to 27 after the 3^rd unit of blood.\n   Plan:\n   Monitor labs, Blood as per orers.\n   Seen by surgery, Foley inserted to track urine output.\n   PLAN:\n    To support with blood products overnight, following serial coags / CBC\n   every 6-8 hours. To continue aggressive acid inhibition with IV PPI and\n   close communication with surgery, GI, and IR. Will check lactate and\n   LFTS / amylase / lipase to assess for occult hypoperfusion and\n   perforation. In the event of a catastrophic bleed, will retry IR\n   embolotherpy. Surgery might not be an option, and would certainly be\n   high risk. Will discuss with oncology and consider transfer to OMED\n   once stabilized.'''
-    text3 = "BACKG...ROUND  BACKGROUND/AIMS: Interleukin-12 (IL-12) governs the Th1-type immune response  12mg"
-    # print(sent_tokenizer.sent_tokenizer(text3))
-    normalized_txt, sents = sent_tokenizer.sent_word_tokenization_and_mapping(text3, max_len=20)
+    # with open("/Users/alexgre/Downloads/note_14147.txt", "r") as f:
+    #     text3 = f.read()
+    # text3 = "L490R. AUCpinsulin E. coli E.coli IMPRESSION: AP chest compared to [**8-14**] through 11: Postoperative widening of the\n mediastinum is stable, as is bilateral subcutaneous emphysema and a small\n retrosternal air leak as seen before. Stable to slightly decreased size of the\n cardiomediastinal silhouette and presumed small-moderate pericardial effusion.\n There is slightly worse ill-defined right lower lobe atelectasis and small\n left lower lobe atelectasis and small bilateral pleural effusions."
+  # print(sent_tokenizer.sent_tokenizer(text3))
+
+    text3 = """intermittent A. Fib with temertet\n9. Toprol XL 50 mg Tablet Sustained Release 24 hr Sig: 1.5
+Tablet Sustained Release 24 hrs PO once a day. Tablet Sustained
+Release 24 hr(s)
+10. Warfarin 5 mg Tablet Sig: One (1) Tablet PO Once Daily at 4
+PM.
+13. Insulin Glargine 100 unit/mL Cartridge Sig: Twenty Four (24)
+units Subcutaneous at bedtime.
+14. Pulmicort Flexhaler 180 mcg/Inhalation Aerosol Powdr Breath
+Activated Sig: Two (2) puffs Inhalation twice a day.
+20. Tamsulosin 0.4 mg Capsule, Sust. Release 24 hr Sig: One (1)
+Capsule, Sust. Release 24 hr PO at bedtime. She will be discharged on her Metoprolol
+Succinate, diovan, and her s p.o. b.i.d. Compazine 5 to 10 mg q.i.d.
+p.r.n. nausea.
+  Blood cultures from [**Doctor Last Name 1263**] grew out
+[**4-26**] E. coli (with E. coli also in urine) resistant to
+amp/pip/sulbactam
+He is currently just on cipro and is to complete a 14 day course
+for E. coli.  He continued to improve clinically, was extubated
+on [**12-29**], """
+
+    text3 = """METOPROLOL - 50mg by mouth three times a day
+WARFARIN - 2mg qHS S/W/Fr, 4mg qHS M/T/Th/Sa
+
+MEDICATIONS ON TRANSFER:"""
+
+    normalized_txt, sents = sent_tokenizer.sent_word_tokenization_and_mapping(text3, max_len=100)
     print(normalized_txt)
-    # for each in sents:
-    #     print(" ".join([e[0] for e in each]))
+    for each in sents:
+        print(" ".join([e[0] for e in each]))
 
 
 if __name__ == '__main__':
