@@ -295,7 +295,12 @@ class SentenceBoundaryDetection:
                             elif word[0: dot_pos] in self.__name_prefix_suffix:
                                 # if it is Mr., Mrs., Dr. etc., should we keep the dot? remove dot for now
                                 # word_list.extend([word[0: dot_pos], " . ", word[dot_pos+1:]])
-                                word_list.extend([word[0: dot_pos+1], " ", word[dot_pos + 1:], " "])
+                                w1 = word[0: dot_pos+1]
+                                w2 = word[dot_pos+1: ]
+                                if len(w2.strip()) > 0:
+                                    word_list.extend([w1, " ", w2, " "])
+                                else:
+                                    word_list.extend([w1, " "])
                             elif dot_pos == len(word) - 1:
                                 if self.__is_num_list(word):
                                     if j == 0:
@@ -810,10 +815,7 @@ He is currently just on cipro and is to complete a 14 day course
 for E. coli.  He continued to improve clinically, was extubated
 on [**12-29**], """
 
-    text3 = """METOPROLOL - 50mg by mouth three times a day
-WARFARIN - 2mg qHS S/W/Fr, 4mg qHS M/T/Th/Sa
-
-MEDICATIONS ON TRANSFER:"""
+    text3 = """Dr. Wu is a docker"""
 
     normalized_txt, sents = sent_tokenizer.sent_word_tokenization_and_mapping(text3, max_len=100)
     print(normalized_txt)
