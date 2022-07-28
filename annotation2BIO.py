@@ -232,7 +232,7 @@ def BIOdata_to_file(file_name, sents, sep=" "):
     assert isinstance(sents, list), "the data object must be list and generated from generate_BIO()."
     full_text = []
     with open(file_name, "w") as fw:
-        # 'anticoagulant', (1000, 1013), (976, 989), 'B-Drug'        
+        # 'anticoagulant', (1000, 1013), (976, 989), 'B-Drug'
         for sent in sents:
             full_sent = []
             for word in sent:
@@ -240,7 +240,7 @@ def BIOdata_to_file(file_name, sents, sep=" "):
                 full_sent.append(sep.join(word))
                 # word.append("\n")
             full_text.append("\n".join(full_sent))
-        fw.write("\n".join(full_text))
+        fw.write("\n\n".join(full_text) + "\n\n")
 
 
 def load_mapping_file(mapping_file, sep=" "):
