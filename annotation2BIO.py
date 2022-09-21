@@ -8,7 +8,7 @@ entities and relations information are also provided in json format
 import os
 import sys
 import logging
-from text_process.sentence_tokenization import SentenceBoundaryDetection
+from NLPreprocessing.text_process.sentence_tokenization import SentenceBoundaryDetection
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__file__)
 # logger.disabled = True
