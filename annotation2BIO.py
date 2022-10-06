@@ -22,7 +22,7 @@ def __ann_info(ann):
 
 def __rel_info(rel_id, rel, rep):
     info = rel.split(" ")
-    assert len(info) == 3, f"{rel_id}\t{rel} is not a valid relation"
+    assert len(info) == 3, "{}\t{} is not a valid relation".format(rel_id, rel)
 
     arg1 = info[1].split(":")[1]
     arg2 = info[2].split(":")[1]
@@ -33,8 +33,7 @@ def __rel_info(rel_id, rel, rep):
 
     return rel_type, arg1, arg2
 
-
-def read_annotation_brat(ann_file, rep=False):
+def read_annotation_brat(ann_file, rep=False, include_id=False):
     """
     load annotation data
     entity_id2index_map -> {'T1': 0}
@@ -42,8 +41,8 @@ def read_annotation_brat(ann_file, rep=False):
     relations -> ('Route-Drug', 'T3', 'T2')
     """
     # map the entity id (e.g., T1) to its index in entities list
-    entity_id2index_map = dict()
-    entites = []
+    entity_id2index_map = dict() 
+    entites = [] 
     relations = []
     with open(ann_file, "r") as f:
         for line in f:
@@ -57,11 +56,16 @@ def read_annotation_brat(ann_file, rep=False):
                 # for each in __ann_info(anns[1]):
                 #     entites.append((t_type, each[0], each[1]))
                 entity_words, offset_s, offset_e = __ann_info(anns[1])
-                entites.append((t_type,  entity_words, (offset_s, offset_e)))
+                if not include_id:
+                    entites.append((t_type,  entity_words, (offset_s, offset_e)))
+                else:
+                    entites.append((ann_id, t_type, offset_s, offset_e, entity_words))
                 entity_id2index_map[ann_id] = len(entites) - 1
             elif ann_id.startswith("R"):
-                relations.append(__rel_info(ann_id, anns[1], rep))
-
+                if not include_id:
+                    relations.append(__rel_info(ann_id, anns[1], rep))
+                else:
+                    relations.append((ann_id, *(__rel_info(ann_id, anns[1], rep))))
     # sort entities list
     # entites = sorted(entites, key=lambda x: x[2][1])
 
