@@ -140,8 +140,15 @@ def generate_BIO(sents, entities, file_id="", no_overlap=False, record_pos=False
                 en_s = entity[2][0]
                 en_e = entity[2][1]
                 en_type = entity[1]
-                if offset_start < en_s and offset_end < en_e:
+                if offset_end <= en_s:
                     token.append('O')
+                elif offset_start < en_s < offset_end == en_e:
+                    logger.warning(f"{entity} boundary mismatch with {sent[j-1]} {token}")
+                    token.append("-".join(['B', en_type]))
+                    entity = next(entities_iter, None)
+                elif offset_start < en_s < offset_end < en_e:
+                    logger.warning(f"{entity} boundary mismatch with {sent[j-1]} {token}")
+                    token.append("-".join(['B', en_type]))
                 elif offset_start == en_s:
                     token.append("-".join(['B', en_type]))
                     if offset_end >= en_e:
@@ -157,10 +164,13 @@ def generate_BIO(sents, entities, file_id="", no_overlap=False, record_pos=False
                     entity = next(entities_iter, None)
                     if not entity:
                         token.append('O')
+                        nsent.append(token)
+                        continue
+                    if offset_end <= entity[2][0]:
+                        token.append('O')
+                        nsent.append(token)
                         continue
                     if offset_start > en_e:
-                        # logger.warning(f"{entity} offset is overlapped with previous entity; current tok not overlap")
-                        # entity = next(entities_iter, None)
                         en_s = entity[2][0]
                         en_e = entity[2][1]
                         en_type = entity[1]
@@ -176,8 +186,6 @@ def generate_BIO(sents, entities, file_id="", no_overlap=False, record_pos=False
                                 token.append('O')
                                 entity = next(entities_iter, None)
                     else:
-                        # logger.warning(f"{entity} offset is overlapped with previous entity; current tok not overlap")
-                        # entity = next(entities_iter, None)
                         en_s = entity[2][0]
                         en_e = entity[2][1]
                         en_type = entity[1]
@@ -204,9 +212,6 @@ def generate_BIO(sents, entities, file_id="", no_overlap=False, record_pos=False
         except Exception as ex:
             if i != len(nsents) - 1:
                 raise RuntimeError(f'The {i}th sentence is an empty sentence')
-
-    # if record_pos:
-    #     nsents = [w for e in nsents for w in e]
 
     return nsents, sent_bound_range
 
@@ -268,14 +273,3 @@ def __find_B_tag(word_seq, c_index):
         elif c_tag == 'O':
             raise RuntimeError(f'check {word_seq[k]} since the label should be either I or B not O')
     raise RuntimeError("No B-tag has been labeled in the data.")
-
-
-def window_sliding_sample_creation(bio_data, window_size):
-    pass
-
-
-def test():
-    pass
-
-if __name__ == '__main__':
-    test()
