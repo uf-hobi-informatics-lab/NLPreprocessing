@@ -2,13 +2,13 @@
 A comprehensive NLP preprocessing package for clinical notes sentence boundary detection, tokenization
 
 ## install
-```
+```sh
 git clone https://github.com/uf-hobi-informatics-lab/NLPreprocessing
 python -m pip install NLPreprocessing
 ```
 
 ## use after install
-```
+```python
 from nlpreprcessing.annotation2BIO import pre_processing, generate_BIO
 txt, sents = pre_processing("./test.txt")
 generate_BIO(sents, [])
