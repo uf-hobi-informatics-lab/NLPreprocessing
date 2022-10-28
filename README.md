@@ -9,7 +9,7 @@ python -m pip install NLPreprocessing
 
 ## use after install
 ```
-from nlpreprcessing.annotation2BIO import pre_processing
+from nlpreprcessing.annotation2BIO import pre_processing, generate_BIO
 
 txt, sents = pre_processing("./test.txt")
 generate_BIO(sents, [])
