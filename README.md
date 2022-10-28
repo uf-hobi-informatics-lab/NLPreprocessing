@@ -2,7 +2,9 @@
 A comprehensive NLP preprocessing package for clinical notes sentence boundary detection, tokenization
 
 ## install
+```
 python -m pip install https://github.com/uf-hobi-informatics-lab/NLPreprocessing
+```
 
 ## use after install
 ```
