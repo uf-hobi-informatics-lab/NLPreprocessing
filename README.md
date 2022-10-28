@@ -10,13 +10,11 @@ python -m pip install NLPreprocessing
 ## use after install
 ```
 from nlpreprcessing.annotation2BIO import pre_processing, generate_BIO
-
 txt, sents = pre_processing("./test.txt")
 generate_BIO(sents, [])
 
+
 from nlpreprcessing.text_process.sentence_tokenization import SentenceBoundaryDetection
-
-
 processor = SentenceBoundaryDetection()
 processor.sent_tokenizer("this is a test!")
 ```
