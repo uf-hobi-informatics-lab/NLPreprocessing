@@ -20,7 +20,7 @@ processor.sent_tokenizer("this is a test!")
 ```
 
 ## python version
-> >=3.6
+> python-version>=3.6
 
 ## dev 
 most new features are implemented in dev branch, we need to make a comprehensive tests on the new features before merge to master
