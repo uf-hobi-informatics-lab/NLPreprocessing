@@ -68,7 +68,7 @@ def read_annotation_brat(ann_file, rep=False):
     return entity_id2index_map, entites, relations
 
 
-def pre_processing(abs_file_path, deid_pattern=None, word_level=True, replace_number=False, max_len=100, sent_tokenizer=None):
+def pre_processing(abs_file_path, deid_pattern=MIMICIII_PATTERN, word_level=True, replace_number=False, max_len=100, sent_tokenizer=None):
     sent_tokenizer = SentenceBoundaryDetection() if sent_tokenizer is None else sent_tokenizer
 
     if replace_number and not word_level:
