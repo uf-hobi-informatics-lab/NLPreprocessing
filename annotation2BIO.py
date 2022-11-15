@@ -44,6 +44,7 @@ def read_annotation_brat(ann_file, rep=False, include_id=False):
     entity_id2index_map = dict() 
     entites = [] 
     relations = []
+    event = []
     with open(ann_file, "r") as f:
         for line in f:
             line = line.strip()
@@ -66,10 +67,17 @@ def read_annotation_brat(ann_file, rep=False, include_id=False):
                     relations.append(__rel_info(ann_id, anns[1], rep))
                 else:
                     relations.append((ann_id, *(__rel_info(ann_id, anns[1], rep))))
+            elif ann_id.startswith("A"):
+                entity_info = anns[1]
+                assert len(entity_info.split(' ')) in [2,3], 'len(entity_info) not in [2,3] is not implemented'
+                if not include_id:
+                    event.append(tuple(*entity_info.split(' ')))
+                else:
+                    event.append((ann_id, *entity_info.split(' ')))
     # sort entities list
     # entites = sorted(entites, key=lambda x: x[2][1])
 
-    return entity_id2index_map, entites, relations
+    return entity_id2index_map, entites, relations, event
 
 
 def pre_processing(abs_file_path, deid_pattern=None, word_level=True, replace_number=False, max_len=100, sent_tokenizer=None):
