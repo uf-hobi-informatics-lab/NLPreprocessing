@@ -22,12 +22,15 @@ python -m pip install https://github.com/uf-hobi-informatics-lab/NLPreprocessing
 ## use after install
 ```
 from nlpreprcessing.annotation2BIO import pre_processing, generate_BIO
-
 txt, sents = pre_processing("./test.txt")
 generate_BIO(sents, [])
 
-from nlpreprcessing.text_process.sentence_tokenization import SentenceBoundaryDetection
 
+from nlpreprcessing.text_process.sentence_tokenization import SentenceBoundaryDetection
+<<<<<<< HEAD
+
+=======
+>>>>>>> b5a4f38 (Update README.md)
 processor = SentenceBoundaryDetection()
 processor.sent_tokenizer("this is a test!")
 ```
