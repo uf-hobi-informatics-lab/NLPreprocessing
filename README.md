@@ -36,7 +36,11 @@ processor.sent_tokenizer("this is a test!")
 ```
 
 ## python version
+<<<<<<< HEAD
 > python-version>=3.6
+=======
+> >=3.6
+>>>>>>> 9764f52 (update python version; add deid pattern)
 
 ## dev 
 most new features are implemented in dev branch, we need to make comprehensive tests on the new features before merging to master
