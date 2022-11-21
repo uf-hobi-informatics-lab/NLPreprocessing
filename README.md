@@ -3,6 +3,7 @@ A comprehensive NLP preprocessing package for clinical notes sentence boundary d
 
 ## install
 <<<<<<< HEAD
+<<<<<<< HEAD
 ```sh
 git clone https://github.com/uf-hobi-informatics-lab/NLPreprocessing
 python -m pip install NLPreprocessing
@@ -17,7 +18,11 @@ generate_BIO(sents, [])
 
 from nlpreprcessing.text_process.sentence_tokenization import SentenceBoundaryDetection
 =======
+=======
+```
+>>>>>>> 7ca89df (Update README.md)
 python -m pip install https://github.com/uf-hobi-informatics-lab/NLPreprocessing
+```
 
 ## use after install
 ```
