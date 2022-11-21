@@ -113,10 +113,10 @@ class SentenceBoundaryDetection:
 
     @staticmethod
     def __clean_attached_TNM(intput_text):
-        T_gen = "T[0-9]{2,}"
-        T_candidates = "[p|c]?T[1-9|X|o](?:a|b|c)?[/]?(?:a|b|c)?"
-        N_candidates = "p?N(?:0|1|X|o)"
-        M_candidates = "p?M(?:0|1|X|o)"
+        T_gen = "T[0-9]"
+        T_candidates = "[p|c]?T[1-9](?:a|b|c)?[/]?(?:a|b|c)?"
+        N_candidates = "p?N(?:0|1)"
+        M_candidates = "p?M(?:0|1)"
         pattern = re.compile("|".join([T_gen, T_candidates, N_candidates, M_candidates]), re.IGNORECASE)
         text = intput_text
         all_matched = re.findall(pattern, text)
