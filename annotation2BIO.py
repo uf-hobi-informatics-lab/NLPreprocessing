@@ -129,7 +129,8 @@ def generate_BIO(sents, entities, file_id="", no_overlap=False, record_pos=False
     for i, sent in enumerate(sents):
         nsent = []
         for j, token in enumerate(sent):
-            if (token[1][0] == token[1][1]) and (token[2][0] == token[2][1]): # Check for ZWSP characters
+            if token[1][0] == token[1][1]: # Check for ZWSP characters
+                logger.warning(f"Ignoring zero-width character encountered in position {j*(i+1)} in file {file_id}")
                 continue
             if record_pos:
                 token.append((i, j))
