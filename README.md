@@ -5,7 +5,7 @@ A comprehensive NLP preprocessing package for clinical notes sentence boundary d
 ```sh
 git clone https://github.com/uf-hobi-informatics-lab/NLPreprocessing
 cd NLPreprocessing
-python -m pip install NLPreprocessing
+pip install .
 ```
 
 ## use after install
